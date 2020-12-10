@@ -140,10 +140,7 @@ In libauditgo, *AuditRule* interface represents an audit rule. This interface ha
 
    ---
 
-   
+   ## Command Line Interface
 
-   
+   `libauditgo` has a sample application which can be used to interact with Linux system and try out the library. This application is located in the cmd folder as `libauditgo-cli`
 
-   
-
-   
