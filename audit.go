@@ -67,3 +67,21 @@ func DeleteAllRules() (int, error) {
 	}
 	return i, err
 }
+
+// DeleteRule deletes an audit rule from the kernel
+func DeleteRule(rule AuditRule) error {
+	client, err := libaudit.NewAuditClient(nil)
+	defer client.Close()
+	if err != nil {
+		return fmt.Errorf("failed to initialize client %s", err.Error())
+	}
+	kr, _, _, err := rule.toKernelAuditRule()
+	if err != nil {
+		return fmt.Errorf("failed to initialize client %s", err.Error())
+	}
+	err = client.DeleteRule(kr.toWireFormat())
+	if err != nil {
+		return fmt.Errorf("failed to delete audit rule %s", err.Error())
+	}
+	return nil
+}

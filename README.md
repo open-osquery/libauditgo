@@ -101,6 +101,31 @@ In libauditgo, *AuditRule* interface represents an audit rule. This interface ha
    }
    ```
 
+   ### Delete a rule
+
+   `DeleteRule` function can be used to delete a single audit rule.
+
+   ```go
+   field = libauditgo.Field{
+   		Name:  "success",
+   		Op:    "=",
+   		Value: 0,
+   }
+   rule = libauditgo.SyscallAuditRule{
+   	Action:   "exit",
+   	Filter:   "always",
+   	Syscalls: string["open"],
+   	Fields:   Field[field],
+   	Keys:     string["unsucccessful-open"],
+   }
+   
+   err := libauditgo.DeleteRule(rule)
+   if err != nil {
+     fmt.Printf("failed: %v\n", err)
+     os.Exit(1)
+   }
+   ```
+
    ### Delete all rules
 
    `DeleteAllRules` function can be used to delete all the audit rules from the kernel.

@@ -11,16 +11,12 @@ import (
 )
 
 var (
-	app             = kingpin.New("libauditgo-cli", "A command-line app for interacting with kernel audit rules.")
-	addCommand      = app.Command("add", "Add rules")
-	deleteCommand   = app.Command("delete", "Delete all the rules")
-	listCommand     = app.Command("list", "List all the rules")
-	addCommandInput = addCommand.Arg("input", "Input file path").Required().String()
-
-	// deleteUserCommand  = deleteCommand.Command("user", "Delete a user.")
-	// deleteUserUIDFlag  = deleteUserCommand.Flag("uid", "Delete user by UID rather than username.")
-	// deleteUserUsername = deleteUserCommand.Arg("username", "Username to delete.")
-	// deletePostCommand  = deleteCommand.Command("post", "Delete a post.")
+	app                = kingpin.New("libauditgo-cli", "A command-line app for interacting with kernel audit rules.")
+	addCommand         = app.Command("add", "Add rules")
+	deleteCommand      = app.Command("delete", "Delete the rules")
+	listCommand        = app.Command("list", "List all the rules")
+	addCommandInput    = addCommand.Arg("input", "Input file path").Required().String()
+	deleteCommandInput = deleteCommand.Arg("input", "Input file path containing rules to be deleted").String()
 )
 
 func main() {
@@ -33,7 +29,7 @@ func main() {
 		printRules()
 	// Delete all audit rules
 	case deleteCommand.FullCommand():
-		deleteRules()
+		deleteRules(*deleteCommandInput)
 	default:
 		fmt.Errorf("not a valid option")
 	}
@@ -61,6 +57,8 @@ func addRules(filePath string) {
 			success++
 		}
 	}
+	fmt.Printf("added rules. success: %d fail: %d", success, fail)
+
 }
 func printRules() {
 	auditRuleData, err := libauditgo.GetRules()
@@ -81,15 +79,41 @@ func printRules() {
 	fmt.Println(string(rules))
 }
 
-func deleteRules() {
-	num, err := libauditgo.DeleteAllRules()
-	if err != nil {
-		fmt.Errorf("failed. %s", err.Error())
-		return
+func deleteRules(filePath string) {
+	if filePath == "" {
+		num, err := libauditgo.DeleteAllRules()
+		if err != nil {
+			fmt.Errorf("failed. %s", err.Error())
+			return
+		}
+		if num > 0 {
+			fmt.Printf("deleted %d rules", num)
+		}
+	} else {
+		rawRules, err := ioutil.ReadFile(filePath)
+		if err != nil {
+			fmt.Printf("failed %v", err)
+			return
+		}
+		auditRules, err := extractAuditRules(rawRules)
+		if err != nil {
+			fmt.Printf("failed %v", err)
+			return
+		}
+		success := 0
+		fail := 0
+		for _, rule := range auditRules {
+			err := libauditgo.DeleteRule(rule)
+			if err != nil {
+				fmt.Printf("failed %v", err)
+				fail++
+			} else {
+				success++
+			}
+		}
+		fmt.Printf("deleted rules. success: %d fail: %d", success, fail)
 	}
-	if num > 0 {
-		fmt.Printf("deleted %d rules", num)
-	}
+
 }
 
 func extractAuditRules(rawRules []byte) (auditRules []libauditgo.AuditRule, err error) {
