@@ -17,7 +17,7 @@ func AddRule(r AuditRule) (err error) {
 	client, err := libaudit.NewAuditClient(nil)
 	defer client.Close()
 	if err != nil {
-		return fmt.Errorf("failed to initialize client %s", err.Error)
+		return fmt.Errorf("failed to initialize client %s", err.Error())
 	}
 	err = client.AddRule(ard.toWireFormat())
 	if err != nil {

@@ -395,7 +395,7 @@ func auditRuleFieldPairData(rule *auditRuleData, fpd *fieldPairData) error {
 		}
 	case AuditFileType:
 		if val, isString := fpd.fieldval.(string); isString {
-			if !(fpd.flags == int(AuditFilterExit) && fpd.flags == int(AuditFilterEntry)) {
+			if fpd.flags != int(AuditFilterExit) && fpd.flags != int(AuditFilterEntry) {
 				return fmt.Errorf("%v can only be used with exit and entry filter list", fpd.fieldname)
 			}
 			var fileval int
@@ -560,7 +560,6 @@ func (ard *auditRuleData) toAuditRule() (AuditRule, error) {
 		bufferOffset int
 	)
 	// parse syscall audit rule
-	var rule AuditRule
 	if !ard.isWatch() {
 		rule := &SyscallAuditRule{
 			Action: actionToName(ard.Action),
@@ -682,7 +681,6 @@ func (ard *auditRuleData) toAuditRule() (AuditRule, error) {
 		}
 		return rule, nil
 	}
-	return rule, nil
 }
 
 // printRule returns the string representation of a given kernel audit rule as
