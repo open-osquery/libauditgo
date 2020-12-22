@@ -121,3 +121,17 @@ func SetEnabled(enabled bool) (err error) {
 	}
 	return nil
 }
+
+// SetBacklogLimit sets max number of outstanding audit buffers
+func SetBacklogLimit(limit uint32) (err error) {
+	client, err := libaudit.NewAuditClient(nil)
+	defer client.Close()
+	if err != nil {
+		return fmt.Errorf("failed to initialize client %s", err.Error())
+	}
+	err = client.SetBacklogLimit(limit, libaudit.WaitForReply)
+	if err != nil {
+		return fmt.Errorf("failed to set backlog limit %s", err.Error())
+	}
+	return nil
+}

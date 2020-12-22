@@ -11,15 +11,17 @@ import (
 )
 
 var (
-	app                = kingpin.New("libauditgo-cli", "A command-line app for interacting with kernel audit rules.")
-	addCommand         = app.Command("add", "Add rules")
-	deleteCommand      = app.Command("delete", "Delete the rules")
-	listCommand        = app.Command("list", "List all the rules")
-	statusCommand      = app.Command("status", "Get the status of the audit subsystem")
-	enableCommand      = app.Command("enable", "Enable/disable audit system")
-	addCommandInput    = addCommand.Arg("input", "Input file path").Required().String()
-	deleteCommandInput = deleteCommand.Arg("input", "Input file path containing rules to be deleted").String()
-	enableCommandInput = enableCommand.Arg("input", "State of the audit system true/false").Required().Bool()
+	app                      = kingpin.New("libauditgo-cli", "A command-line app for interacting with kernel audit rules.")
+	addCommand               = app.Command("add", "Add rules")
+	deleteCommand            = app.Command("delete", "Delete the rules")
+	listCommand              = app.Command("list", "List all the rules")
+	statusCommand            = app.Command("status", "Get the status of the audit subsystem")
+	enableCommand            = app.Command("enable", "Enable/disable audit system")
+	backlogLimitCommand      = app.Command("backlog", "Set the limit of the backlog buffer")
+	addCommandInput          = addCommand.Arg("input", "Input file path").Required().String()
+	deleteCommandInput       = deleteCommand.Arg("input", "Input file path containing rules to be deleted").String()
+	enableCommandInput       = enableCommand.Arg("input", "State of the audit system true/false").Required().Bool()
+	backlogLimitCommandInput = backlogLimitCommand.Arg("limit", "Limit of the backlog buffer").Required().Int()
 )
 
 func main() {
@@ -36,9 +38,12 @@ func main() {
 	// Get audit subsystem status
 	case statusCommand.FullCommand():
 		getStatus()
-		// Add audit Rules
+	// Enable/disable audit Rules
 	case enableCommand.FullCommand():
 		enableSystem(*enableCommandInput)
+	// Set the limit of the backlog buffer
+	case backlogCommand.FullCommand():
+		setBacklogLimit(uint32(*backlogCommandInput))
 	default:
 		fmt.Errorf("not a valid option")
 	}
@@ -142,6 +147,14 @@ func getStatus() {
 
 func enableSystem(enable bool) {
 	err := libauditgo.SetEnabled(enable)
+	if err != nil {
+		fmt.Errorf("failed. %s", err.Error())
+		return
+	}
+}
+
+func setBacklogLimit(limit uint32) {
+	err := libauditgo.SetBacklogLimit(limit)
 	if err != nil {
 		fmt.Errorf("failed. %s", err.Error())
 		return
