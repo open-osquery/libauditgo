@@ -16,8 +16,10 @@ var (
 	deleteCommand      = app.Command("delete", "Delete the rules")
 	listCommand        = app.Command("list", "List all the rules")
 	statusCommand      = app.Command("status", "Get the status of the audit subsystem")
+	enableCommand      = app.Command("enable", "Enable/disable audit system")
 	addCommandInput    = addCommand.Arg("input", "Input file path").Required().String()
 	deleteCommandInput = deleteCommand.Arg("input", "Input file path containing rules to be deleted").String()
+	enableCommandInput = enableCommand.Arg("input", "State of the audit system true/false").Required().Bool()
 )
 
 func main() {
@@ -31,9 +33,12 @@ func main() {
 	// Delete all audit rules
 	case deleteCommand.FullCommand():
 		deleteRules(*deleteCommandInput)
-		// Get audit subsystem status
+	// Get audit subsystem status
 	case statusCommand.FullCommand():
 		getStatus()
+		// Add audit Rules
+	case enableCommand.FullCommand():
+		enableSystem(*enableCommandInput)
 	default:
 		fmt.Errorf("not a valid option")
 	}
@@ -133,6 +138,14 @@ func getStatus() {
 		return
 	}
 	fmt.Println(string(status))
+}
+
+func enableSystem(enable bool) {
+	err := libauditgo.SetEnabled(enable)
+	if err != nil {
+		fmt.Errorf("failed. %s", err.Error())
+		return
+	}
 }
 
 func extractAuditRules(rawRules []byte) (auditRules []libauditgo.AuditRule, err error) {

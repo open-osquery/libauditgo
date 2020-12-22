@@ -107,3 +107,17 @@ func GetStatus() (status AuditStatus, err error) {
 	status.BacklogWaitTime = kstatus.BacklogWaitTime
 	return status, nil
 }
+
+// SetEnabled is used to toggle the audit system active/inactive
+func SetEnabled(enabled bool) (err error) {
+	client, err := libaudit.NewAuditClient(nil)
+	defer client.Close()
+	if err != nil {
+		return fmt.Errorf("failed to initialize client %s", err.Error())
+	}
+	err = client.SetEnabled(enabled, libaudit.WaitForReply)
+	if err != nil {
+		return fmt.Errorf("failed to change status %s", err.Error())
+	}
+	return nil
+}
