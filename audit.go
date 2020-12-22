@@ -85,3 +85,25 @@ func DeleteRule(rule AuditRule) error {
 	}
 	return nil
 }
+
+// GetStatus fetches the status of the audit system
+func GetStatus() (status AuditStatus, err error) {
+	client, err := libaudit.NewAuditClient(nil)
+	defer client.Close()
+	if err != nil {
+		return AuditStatus{}, fmt.Errorf("failed to initialize client %s", err.Error())
+	}
+	kstatus, err := client.GetStatus()
+	if err != nil {
+		return AuditStatus{}, fmt.Errorf("failed to get audit status %s", err.Error())
+	}
+	status.Enabled = kstatus.Enabled
+	status.Failure = kstatus.Failure
+	status.PID = kstatus.PID
+	status.RateLimit = kstatus.RateLimit
+	status.BacklogLimit = kstatus.BacklogLimit
+	status.Lost = kstatus.Lost
+	status.Backlog = kstatus.Backlog
+	status.BacklogWaitTime = kstatus.BacklogWaitTime
+	return status, nil
+}

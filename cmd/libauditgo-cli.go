@@ -15,6 +15,7 @@ var (
 	addCommand         = app.Command("add", "Add rules")
 	deleteCommand      = app.Command("delete", "Delete the rules")
 	listCommand        = app.Command("list", "List all the rules")
+	statusCommand      = app.Command("status", "Get the status of the audit subsystem")
 	addCommandInput    = addCommand.Arg("input", "Input file path").Required().String()
 	deleteCommandInput = deleteCommand.Arg("input", "Input file path containing rules to be deleted").String()
 )
@@ -30,6 +31,9 @@ func main() {
 	// Delete all audit rules
 	case deleteCommand.FullCommand():
 		deleteRules(*deleteCommandInput)
+		// Get audit subsystem status
+	case statusCommand.FullCommand():
+		getStatus()
 	default:
 		fmt.Errorf("not a valid option")
 	}
@@ -60,6 +64,7 @@ func addRules(filePath string) {
 	fmt.Printf("added rules. success: %d fail: %d", success, fail)
 
 }
+
 func printRules() {
 	auditRuleData, err := libauditgo.GetRules()
 	if err != nil {
@@ -114,6 +119,20 @@ func deleteRules(filePath string) {
 		fmt.Printf("deleted rules. success: %d fail: %d", success, fail)
 	}
 
+}
+
+func getStatus() {
+	auditStatus, err := libauditgo.GetStatus()
+	if err != nil {
+		fmt.Errorf("failed. %s", err.Error())
+		return
+	}
+	status, err := json.MarshalIndent(auditStatus, "", "  ")
+	if err != nil {
+		fmt.Errorf("failed. %s", err.Error())
+		return
+	}
+	fmt.Println(string(status))
 }
 
 func extractAuditRules(rawRules []byte) (auditRules []libauditgo.AuditRule, err error) {
