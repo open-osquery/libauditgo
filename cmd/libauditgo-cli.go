@@ -42,8 +42,8 @@ func main() {
 	case enableCommand.FullCommand():
 		enableSystem(*enableCommandInput)
 	// Set the limit of the backlog buffer
-	case backlogCommand.FullCommand():
-		setBacklogLimit(uint32(*backlogCommandInput))
+	case backlogLimitCommand.FullCommand():
+		setBacklogLimit(uint32(*backlogLimitCommandInput))
 	default:
 		fmt.Errorf("not a valid option")
 	}
@@ -76,6 +76,18 @@ func addRules(filePath string) {
 }
 
 func printRules() {
+	// auditRule := libauditgo.FileAuditRule{
+	// 	Path:        "/opt/",
+	// 	Permissions: "rwxa",
+	// 	Keys:        []string{"k1", "k2"},
+	// }
+	f1 := libauditgo.Field{Name: "auid", Op: "!=", Value: float64(0)}
+	auditRule := libauditgo.SyscallAuditRule{
+		Action:   "always",
+		Filter:   "exit",
+		Syscalls: []string{"all"},
+		Fields:   []libauditgo.Field{f1},
+	}
 	auditRuleData, err := libauditgo.GetRules()
 	if err != nil {
 		fmt.Errorf("failed. %s", err.Error())
@@ -92,6 +104,9 @@ func printRules() {
 	}
 
 	fmt.Println(string(rules))
+	for _, k := range auditRuleData {
+		fmt.Println(k.Equals(&auditRule, false))
+	}
 }
 
 func deleteRules(filePath string) {

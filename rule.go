@@ -37,6 +37,7 @@ type KernelAuditRule struct {
 // AuditRule asbstract syscall and file-watch audit rules
 type AuditRule interface {
 	toKernelAuditRule() (ard auditRuleData, act uint32, filt uint32, err error)
+	Equals(auditRule AuditRule, ignoreFlags bool) bool
 }
 
 // FileAuditRule represents a file-watch audit rule
@@ -81,13 +82,38 @@ func (r *FileAuditRule) toKernelAuditRule() (ard auditRuleData, act uint32, filt
 	return
 }
 
-// SyscallAuditRule represents a syscall audit rule
-type SyscallAuditRule struct {
-	Action   string   `json:"action"`
-	Filter   string   `json:"filter"`
-	Syscalls []string `json:"syscalls"`
-	Fields   []Field  `json:"fields"`
-	Keys     []string `json:"keys"`
+// Equals compares audit rules and returns true if they are equals else it
+// return false. It also return false in case of malformed audit rule.
+func (r *FileAuditRule) Equals(auditRule AuditRule, ignoreFlags bool) bool {
+	ard, _, _, err := auditRule.toKernelAuditRule()
+	if err != nil {
+		return false
+	}
+	if !ard.isWatch() {
+		return false
+	}
+	auditRule, err = ard.toAuditRule()
+	if err != nil {
+		return false
+	}
+	fAuditRule, ok := auditRule.(*FileAuditRule)
+	if !ok {
+		return false
+	}
+	ard, _, _, err = r.toKernelAuditRule()
+	if err != nil {
+		return false
+	}
+	rule, err := ard.toAuditRule()
+	if err != nil {
+		return false
+	}
+	k, ok := rule.(*FileAuditRule)
+	if !ok {
+		return false
+	}
+	return isFileAuditRuleEqual(*k, *fAuditRule, ignoreFlags)
+
 }
 
 // Field represents audit rule field
@@ -95,6 +121,19 @@ type Field struct {
 	Name  string      `json:"name"`
 	Value interface{} `json:"value"` // Can be a string or int
 	Op    string      `json:"op"`
+}
+
+func (f *Field) toString() string {
+	return fmt.Sprintf("%v%v%v", f.Name, f.Op, f.Value)
+}
+
+// SyscallAuditRule represents a syscall audit rule
+type SyscallAuditRule struct {
+	Action   string   `json:"action"`
+	Filter   string   `json:"filter"`
+	Syscalls []string `json:"syscalls"`
+	Fields   []Field  `json:"fields"`
+	Keys     []string `json:"keys"`
 }
 
 // toKernelAuditRule converts a SyscallAuditRule to auditAddRuleData
@@ -187,6 +226,56 @@ func (r *SyscallAuditRule) toKernelAuditRule() (ard auditRuleData, act uint32, f
 		}
 	}
 	return
+}
+
+// Equals compares audit rules and returns true if they are equals else it
+// return false. It also return false in case of malformed audit rule.
+func (r *SyscallAuditRule) Equals(auditRule AuditRule, ignoreFlags bool) bool {
+	ard, _, _, err := auditRule.toKernelAuditRule()
+	if err != nil {
+		return false
+	}
+	kernelRule, _, _, err := r.toKernelAuditRule()
+	if err != nil {
+		return false
+	}
+	if ard.isWatch() != kernelRule.isWatch() {
+		return false
+	}
+	rule1, err := ard.toAuditRule()
+	if err != nil {
+		return false
+	}
+	rule2, err := kernelRule.toAuditRule()
+	if err != nil {
+		return false
+	}
+	switch auditRule.(type) {
+	case *FileAuditRule:
+		f1, ok := rule1.(*FileAuditRule)
+		if !ok {
+			return false
+		}
+		f2, ok := rule2.(*FileAuditRule)
+		if !ok {
+			return false
+		}
+		return isFileAuditRuleEqual(*f1, *f2, ignoreFlags)
+	case *SyscallAuditRule:
+		s1, ok := rule1.(*SyscallAuditRule)
+		if !ok {
+			return false
+		}
+		s2, ok := rule2.(*SyscallAuditRule)
+		if !ok {
+			return false
+		}
+		return isSyscallAuditRulesEqual(*s1, *s2, ignoreFlags)
+	default:
+		return false
+	}
+
+	return false
 
 }
 
@@ -235,7 +324,6 @@ func auditRuleFieldPairData(rule *auditRuleData, fpd *fieldPairData) error {
 	var (
 		auditPermAdded bool
 	)
-
 	if rule.FieldCount >= (AuditMaxFields - 1) {
 		return fmt.Errorf("max fields for rule exceeded")
 	}
@@ -255,10 +343,11 @@ func auditRuleFieldPairData(rule *auditRuleData, fpd *fieldPairData) error {
 	}
 	rule.Fields[rule.FieldCount] = fieldid
 	rule.Fieldflags[rule.FieldCount] = fpd.opval
-
 	switch fieldid {
 	case AuditUID, AuditEUID, AuditSUID, AuditFSUID, AuditLOGINUID, AuditObjUID, AuditObjGID:
 		if val, isInt := fpd.fieldval.(float64); isInt {
+			rule.Values[rule.FieldCount] = (uint32)(val)
+		} else if val, isInt := fpd.fieldval.(uint32); isInt {
 			rule.Values[rule.FieldCount] = (uint32)(val)
 		} else if val, isString := fpd.fieldval.(string); isString {
 			if val == "unset" {
@@ -280,6 +369,8 @@ func auditRuleFieldPairData(rule *auditRuleData, fpd *fieldPairData) error {
 	case AuditGID, AuditEGID, AuditSGID, AuditFSGID:
 		if val, isInt := fpd.fieldval.(float64); isInt {
 			rule.Values[rule.FieldCount] = (uint32)(val)
+		} else if val, isInt := fpd.fieldval.(uint32); isInt {
+			rule.Values[rule.FieldCount] = (uint32)(val)
 		} else if val, isString := fpd.fieldval.(string); isString {
 			group, err := user.LookupGroup(val)
 			if err != nil {
@@ -299,6 +390,8 @@ func auditRuleFieldPairData(rule *auditRuleData, fpd *fieldPairData) error {
 		}
 		if val, isInt := fpd.fieldval.(float64); isInt {
 			rule.Values[rule.FieldCount] = (uint32)(val)
+		} else if val, isInt := fpd.fieldval.(uint32); isInt {
+			rule.Values[rule.FieldCount] = (uint32)(val)
 		} else if _, isString := fpd.fieldval.(string); isString {
 			return fmt.Errorf("string values unsupported for field type")
 		} else {
@@ -309,6 +402,8 @@ func auditRuleFieldPairData(rule *auditRuleData, fpd *fieldPairData) error {
 			return fmt.Errorf("msgtype field can only be used with exclude filter list")
 		}
 		if val, isInt := fpd.fieldval.(float64); isInt {
+			rule.Values[rule.FieldCount] = (uint32)(val)
+		} else if val, isInt := fpd.fieldval.(uint32); isInt {
 			rule.Values[rule.FieldCount] = (uint32)(val)
 		} else if _, isString := fpd.fieldval.(string); isString {
 			return fmt.Errorf("string values unsupported for field type")
@@ -354,6 +449,8 @@ func auditRuleFieldPairData(rule *auditRuleData, fpd *fieldPairData) error {
 		// XXX Considers X64 only
 		if _, isInt := fpd.fieldval.(float64); isInt {
 			rule.Values[rule.FieldCount] = AuditARCH_X86_64
+		} else if val, isInt := fpd.fieldval.(uint32); isInt {
+			rule.Values[rule.FieldCount] = (uint32)(val)
 		} else if _, isString := fpd.fieldval.(string); isString {
 			return fmt.Errorf("string values unsupported for field type")
 		} else {
@@ -412,6 +509,8 @@ func auditRuleFieldPairData(rule *auditRuleData, fpd *fieldPairData) error {
 		}
 	case AuditArg0, AuditArg1, AuditArg2, AuditArg3:
 		if val, isInt := fpd.fieldval.(float64); isInt {
+			rule.Values[rule.FieldCount] = (uint32)(val)
+		} else if val, isInt := fpd.fieldval.(uint32); isInt {
 			rule.Values[rule.FieldCount] = (uint32)(val)
 		} else if _, isString := fpd.fieldval.(string); isString {
 			return fmt.Errorf("%v should be a number", fpd.fieldname)
@@ -1176,4 +1275,68 @@ func syscallToName(syscall string) (string, error) {
 		return val, nil
 	}
 	return "", fmt.Errorf("syscall %v not found", syscall)
+}
+
+func isFileAuditRuleEqual(rule1 FileAuditRule, rule2 FileAuditRule, ignoreFlags bool) bool {
+	if rule1.Path != rule2.Path {
+		return false
+	}
+	if rule1.Permissions != rule2.Permissions {
+		return false
+	}
+	if !ignoreFlags {
+		return isEqual(rule1.Keys, rule2.Keys)
+	}
+	return true
+}
+
+func isEqual(slice1 []string, slice2 []string) bool {
+	{
+		if len(slice1) != len(slice1) {
+			return false
+		}
+		for _, key := range slice1 {
+			found := false
+			for _, k := range slice2 {
+				if key == k {
+					found = true
+					continue
+				}
+			}
+			if !found {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func isSyscallAuditRulesEqual(rule1 SyscallAuditRule, rule2 SyscallAuditRule, ignoreFlags bool) bool {
+	if rule1.Action != rule2.Action {
+		return false
+	}
+	if rule1.Filter != rule2.Filter {
+		return false
+	}
+	if !isEqual(rule1.Syscalls, rule2.Syscalls) {
+		return false
+	}
+	if len(rule1.Fields) == len(rule2.Fields) {
+		var fieldSlice1 []string
+		var fieldSlice2 []string
+		for i := 0; i < len(rule1.Fields); i++ {
+			fieldSlice1 = append(fieldSlice1, rule1.Fields[i].toString())
+			fieldSlice2 = append(fieldSlice2, rule2.Fields[i].toString())
+		}
+		if !isEqual(fieldSlice1, fieldSlice2) {
+			return false
+		}
+	} else {
+		return false
+	}
+	if !ignoreFlags {
+		return isEqual(rule1.Keys, rule2.Keys)
+	}
+	return true
+
 }
