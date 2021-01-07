@@ -62,18 +62,16 @@ func (r *FileAuditRule) toKernelAuditRule() (ard auditRuleData, act uint32, filt
 	}
 	// The key value is optional for an audit; rule
 	if len(r.Keys) > 0 {
-		for _, key := range r.Keys {
-			fpd := fieldPairData{
-				fieldval:     key,
-				opval:        AuditEqual,
-				fieldname:    "key",
-				flags:        int(AuditFilterUnset),
-				syscallAdded: true,
-			}
-			err = auditRuleFieldPairData(&ard, &fpd)
-			if err != nil {
-				return
-			}
+		fpd := fieldPairData{
+			fieldval:     strings.Join(r.Keys, "\u0001"),
+			opval:        AuditEqual,
+			fieldname:    "key",
+			flags:        int(AuditFilterUnset),
+			syscallAdded: true,
+		}
+		err = auditRuleFieldPairData(&ard, &fpd)
+		if err != nil {
+			return
 		}
 	}
 	// For file-watch audit rule action is 'always' and filter is 'exit'
@@ -209,20 +207,33 @@ func (r *SyscallAuditRule) toKernelAuditRule() (ard auditRuleData, act uint32, f
 		}
 	}
 
-	// The key value is optional for a file rule
+	// // The key value is optional for a file rule
+	// if len(r.Keys) > 0 {
+	// 	for _, key := range r.Keys {
+	// 		fpd := fieldPairData{
+	// 			fieldval:     key,
+	// 			opval:        AuditEqual,
+	// 			fieldname:    "key",
+	// 			flags:        int(AuditFilterUnset),
+	// 			syscallAdded: true,
+	// 		}
+	// 		err = auditRuleFieldPairData(&ard, &fpd)
+	// 		if err != nil {
+	// 			return
+	// 		}
+	// 	}
+	// }
 	if len(r.Keys) > 0 {
-		for _, key := range r.Keys {
-			fpd := fieldPairData{
-				fieldval:     key,
-				opval:        AuditEqual,
-				fieldname:    "key",
-				flags:        int(AuditFilterUnset),
-				syscallAdded: true,
-			}
-			err = auditRuleFieldPairData(&ard, &fpd)
-			if err != nil {
-				return
-			}
+		fpd := fieldPairData{
+			fieldval:     strings.Join(r.Keys, "\u0001"),
+			opval:        AuditEqual,
+			fieldname:    "key",
+			flags:        int(AuditFilterUnset),
+			syscallAdded: true,
+		}
+		err = auditRuleFieldPairData(&ard, &fpd)
+		if err != nil {
+			return
 		}
 	}
 	return
