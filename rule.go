@@ -1056,6 +1056,9 @@ func (ard *auditRuleData) addPerms(perms string) error {
 // checkPath checks the path which is being used in a watch rule (AUDIT_WATCH and AUDIT_DIR) to validate it is formatted
 // correctly
 func checkPath(rulePath string) error {
+	if len(rulePath) == 0 {
+		return fmt.Errorf("path is empty")
+	}
 	if len(rulePath) >= PathMax {
 		return fmt.Errorf("path %q too large", rulePath)
 	}
