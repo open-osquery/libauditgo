@@ -45,7 +45,8 @@ func main() {
 	case backlogLimitCommand.FullCommand():
 		setBacklogLimit(uint32(*backlogLimitCommandInput))
 	default:
-		fmt.Errorf("not a valid option")
+		fmt.Fprintln(os.Stderr, "not a valid option")
+		os.Exit(1)
 	}
 }
 
@@ -90,7 +91,7 @@ func printRules() {
 	}
 	auditRuleData, err := libauditgo.GetRules()
 	if err != nil {
-		fmt.Errorf("failed. %s", err.Error())
+		fmt.Fprintln(os.Stderr, "failed", err.Error())
 		return
 	}
 	if len(auditRuleData) == 0 {
@@ -99,7 +100,7 @@ func printRules() {
 	}
 	rules, err := json.MarshalIndent(auditRuleData, "", "  ")
 	if err != nil {
-		fmt.Errorf("failed. %s", err.Error())
+		fmt.Fprintln(os.Stderr, "failed", err.Error())
 		return
 	}
 
@@ -113,7 +114,7 @@ func deleteRules(filePath string) {
 	if filePath == "" {
 		num, err := libauditgo.DeleteAllRules()
 		if err != nil {
-			fmt.Errorf("failed. %s", err.Error())
+			fmt.Fprintln(os.Stderr, "failed", err.Error())
 			return
 		}
 		if num > 0 {
