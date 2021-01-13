@@ -207,22 +207,6 @@ func (r *SyscallAuditRule) toKernelAuditRule() (ard auditRuleData, act uint32, f
 		}
 	}
 
-	// // The key value is optional for a file rule
-	// if len(r.Keys) > 0 {
-	// 	for _, key := range r.Keys {
-	// 		fpd := fieldPairData{
-	// 			fieldval:     key,
-	// 			opval:        AuditEqual,
-	// 			fieldname:    "key",
-	// 			flags:        int(AuditFilterUnset),
-	// 			syscallAdded: true,
-	// 		}
-	// 		err = auditRuleFieldPairData(&ard, &fpd)
-	// 		if err != nil {
-	// 			return
-	// 		}
-	// 	}
-	// }
 	if len(r.Keys) > 0 {
 		fpd := fieldPairData{
 			fieldval:     strings.Join(r.Keys, "\u0001"),
@@ -285,9 +269,6 @@ func (r *SyscallAuditRule) Equals(auditRule AuditRule, ignoreFlags bool) bool {
 	default:
 		return false
 	}
-
-	return false
-
 }
 
 // parseAction takes an action as string and returns its corresponding integer
@@ -503,7 +484,7 @@ func auditRuleFieldPairData(rule *auditRuleData, fpd *fieldPairData) error {
 		}
 	case AuditFileType:
 		if val, isString := fpd.fieldval.(string); isString {
-			if !(fpd.flags == int(AuditFilterExit) && fpd.flags == int(AuditFilterEntry)) {
+			if fpd.flags != int(AuditFilterExit) && fpd.flags != int(AuditFilterEntry) {
 				return fmt.Errorf("%v can only be used with exit and entry filter list", fpd.fieldname)
 			}
 			var fileval int
@@ -670,7 +651,6 @@ func (ard *auditRuleData) toAuditRule() (AuditRule, error) {
 		bufferOffset int
 	)
 	// parse syscall audit rule
-	var rule AuditRule
 	if !ard.isWatch() {
 		rule := &SyscallAuditRule{
 			Action: actionToName(ard.Action),
@@ -792,7 +772,6 @@ func (ard *auditRuleData) toAuditRule() (AuditRule, error) {
 		}
 		return rule, nil
 	}
-	return rule, nil
 }
 
 // printRule returns the string representation of a given kernel audit rule as

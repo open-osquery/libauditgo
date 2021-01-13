@@ -1,2 +1,4 @@
 # Cmds
 cmd/cli
+libauditgo-cli
+audit-cli
