@@ -65,29 +65,17 @@ func addRules(filePath string) {
 	for _, rule := range auditRules {
 		err := libauditgo.AddRule(rule)
 		if err != nil {
-			fmt.Printf("failed %v", err)
+			fmt.Printf("failed %v\n", err)
 			fail++
 		} else {
 			success++
 		}
 	}
-	fmt.Printf("added rules. success: %d fail: %d", success, fail)
+	fmt.Printf("added rules. success: %d fail: %d\n", success, fail)
 
 }
 
 func printRules() {
-	// auditRule := libauditgo.FileAuditRule{
-	// 	Path:        "/opt/",
-	// 	Permissions: "rwxa",
-	// 	Keys:        []string{"k1", "k2"},
-	// }
-	f1 := libauditgo.Field{Name: "auid", Op: "!=", Value: float64(0)}
-	auditRule := libauditgo.SyscallAuditRule{
-		Action:   "always",
-		Filter:   "exit",
-		Syscalls: []string{"all"},
-		Fields:   []libauditgo.Field{f1},
-	}
 	auditRuleData, err := libauditgo.GetRules()
 	if err != nil {
 		fmt.Errorf("failed. %s", err.Error())
@@ -104,9 +92,6 @@ func printRules() {
 	}
 
 	fmt.Println(string(rules))
-	for _, k := range auditRuleData {
-		fmt.Println(k.Equals(&auditRule, false))
-	}
 }
 
 func deleteRules(filePath string) {

@@ -51,7 +51,6 @@ type FileAuditRule struct {
 // toKernelAuditRule converts a FileAuditRule to auditAddRuleData
 func (r *FileAuditRule) toKernelAuditRule() (ard auditRuleData, act uint32, filt uint32, err error) {
 	ard.Buf = make([]byte, 0)
-
 	err = ard.addWatch(r.Path, r.StrictPathCheck)
 	if err != nil {
 		return
@@ -77,6 +76,7 @@ func (r *FileAuditRule) toKernelAuditRule() (ard auditRuleData, act uint32, filt
 	// For file-watch audit rule action is 'always' and filter is 'exit'
 	act = AuditAlways
 	filt = AuditFilterExit
+
 	return
 }
 
@@ -954,6 +954,7 @@ func (ard *auditRuleData) addWatch(path string, strictCheck bool) error {
 	}
 	path = sanitizePath(path)
 	fInfo, err := os.Stat(path)
+	typeName := AuditWatch
 	if err != nil {
 		// validate if path exists
 		if os.IsNotExist(err) && strictCheck {
@@ -962,16 +963,13 @@ func (ard *auditRuleData) addWatch(path string, strictCheck bool) error {
 		if !os.IsNotExist(err) {
 			return err
 		}
-		// Otherwise the path did not exist, return an error indicating this rule
-		// is being skipped
-		return fmt.Errorf("skipping rule: %v", err)
+	} else {
+		if fInfo.IsDir() {
+			typeName = AuditDir
+		}
 	}
 	// set the audit type name to either AuditWatch or AuditDir base on weather the path in
 	// rule is for a file or directory
-	typeName := AuditWatch
-	if fInfo.IsDir() {
-		typeName = AuditDir
-	}
 
 	// Verify there are no field set for the rule
 	if ard.FieldCount != 0 {
