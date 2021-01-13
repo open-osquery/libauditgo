@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/open-osquery/libauditgo"
+	"github.com/pkg/errors"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -44,20 +45,18 @@ func main() {
 	// Set the limit of the backlog buffer
 	case backlogLimitCommand.FullCommand():
 		setBacklogLimit(uint32(*backlogLimitCommandInput))
-	default:
-		fmt.Errorf("not a valid option")
 	}
 }
 
 func addRules(filePath string) {
 	rawRules, err := ioutil.ReadFile(filePath)
 	if err != nil {
-		fmt.Printf("failed %v", err)
+		fmt.Fprintf(os.Stderr, "Failed %s\n", err)
 		return
 	}
 	auditRules, err := extractAuditRules(rawRules)
 	if err != nil {
-		fmt.Printf("failed %v", err)
+		fmt.Fprintf(os.Stderr, "Failed %s\n", err)
 		return
 	}
 	success := 0
@@ -65,29 +64,29 @@ func addRules(filePath string) {
 	for _, rule := range auditRules {
 		err := libauditgo.AddRule(rule)
 		if err != nil {
-			fmt.Printf("failed %v\n", err)
+			fmt.Fprintf(os.Stderr, "Failed %s\n", err)
 			fail++
 		} else {
 			success++
 		}
 	}
-	fmt.Printf("added rules. success: %d fail: %d\n", success, fail)
+	fmt.Fprintf(os.Stderr, "added rules. success: %d fail: %d\n", success, fail)
 
 }
 
 func printRules() {
 	auditRuleData, err := libauditgo.GetRules()
 	if err != nil {
-		fmt.Errorf("failed. %s", err.Error())
+		fmt.Fprintf(os.Stderr, "Failed %s\n", err)
 		return
 	}
 	if len(auditRuleData) == 0 {
-		fmt.Println("no rules")
+		fmt.Fprintf(os.Stderr, "No Rules found%s\n", err)
 		return
 	}
 	rules, err := json.MarshalIndent(auditRuleData, "", "  ")
 	if err != nil {
-		fmt.Errorf("failed. %s", err.Error())
+		fmt.Fprintf(os.Stderr, "Failed. %s\n", err.Error())
 		return
 	}
 
@@ -98,21 +97,21 @@ func deleteRules(filePath string) {
 	if filePath == "" {
 		num, err := libauditgo.DeleteAllRules()
 		if err != nil {
-			fmt.Errorf("failed. %s", err.Error())
+			fmt.Fprintf(os.Stderr, "Failed %s\n", err)
 			return
 		}
 		if num > 0 {
-			fmt.Printf("deleted %d rules", num)
+			fmt.Printf("Deleted %d rules", num)
 		}
 	} else {
 		rawRules, err := ioutil.ReadFile(filePath)
 		if err != nil {
-			fmt.Printf("failed %v", err)
+			fmt.Fprintf(os.Stderr, "Failed %s\n", err)
 			return
 		}
 		auditRules, err := extractAuditRules(rawRules)
 		if err != nil {
-			fmt.Printf("failed %v", err)
+			fmt.Fprintf(os.Stderr, "Failed %s\n", err)
 			return
 		}
 		success := 0
@@ -120,13 +119,13 @@ func deleteRules(filePath string) {
 		for _, rule := range auditRules {
 			err := libauditgo.DeleteRule(rule)
 			if err != nil {
-				fmt.Printf("failed %v", err)
+				fmt.Fprintf(os.Stderr, "Failed %s\n", err)
 				fail++
 			} else {
 				success++
 			}
 		}
-		fmt.Printf("deleted rules. success: %d fail: %d", success, fail)
+		fmt.Printf("Deleted rules; success: %d fail: %d", success, fail)
 	}
 
 }
@@ -134,12 +133,12 @@ func deleteRules(filePath string) {
 func getStatus() {
 	auditStatus, err := libauditgo.GetStatus()
 	if err != nil {
-		fmt.Errorf("failed. %s", err.Error())
+		fmt.Fprintf(os.Stderr, "Failed %s\n", err)
 		return
 	}
 	status, err := json.MarshalIndent(auditStatus, "", "  ")
 	if err != nil {
-		fmt.Errorf("failed. %s", err.Error())
+		fmt.Fprintf(os.Stderr, "Failed %s\n", err)
 		return
 	}
 	fmt.Println(string(status))
@@ -148,7 +147,7 @@ func getStatus() {
 func enableSystem(enable bool) {
 	err := libauditgo.SetEnabled(enable)
 	if err != nil {
-		fmt.Errorf("failed. %s", err.Error())
+		fmt.Fprintf(os.Stderr, "Failed %s\n", err)
 		return
 	}
 }
@@ -156,7 +155,7 @@ func enableSystem(enable bool) {
 func setBacklogLimit(limit uint32) {
 	err := libauditgo.SetBacklogLimit(limit)
 	if err != nil {
-		fmt.Errorf("failed. %s", err.Error())
+		fmt.Fprintf(os.Stderr, "Failed %s\n", err)
 		return
 	}
 }
@@ -180,22 +179,22 @@ func extractAuditRules(rawRules []byte) (auditRules []libauditgo.AuditRule, err 
 			afr := &libauditgo.FileAuditRule{}
 			buf, err := json.Marshal(x)
 			if err != nil {
-				return nil, fmt.Errorf("failed %v", err)
+				return nil, errors.Wrap(err, "Failed to marshal file audit rules")
 			}
 			err = json.Unmarshal(buf, &afr)
 			if err != nil {
-				return nil, fmt.Errorf("failed %v", err)
+				return nil, errors.Wrap(err, "Failed to unmarshal audit rules")
 			}
 			auditRules = append(auditRules, afr)
 		} else {
 			afr := &libauditgo.SyscallAuditRule{}
 			buf, err := json.Marshal(x)
 			if err != nil {
-				return nil, fmt.Errorf("failed %v", err)
+				return nil, errors.Wrap(err, "Failed to marshal syscall audit rules")
 			}
 			err = json.Unmarshal(buf, &afr)
 			if err != nil {
-				return nil, fmt.Errorf("failed %v", err)
+				return nil, errors.Wrap(err, "Failed to unmarshal syscall audit rules")
 			}
 			auditRules = append(auditRules, afr)
 		}
