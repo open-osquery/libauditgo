@@ -986,7 +986,10 @@ func (ard *auditRuleData) addWatch(path string, strictCheck bool) error {
 
 // addPerms parses a permissions string and associated it with a watch rule
 func (ard *auditRuleData) addPerms(perms string) error {
-	if len(perms) > 4 || len(perms) < 1 {
+	if len(perms) == 0 {
+		return nil
+	}
+	if len(perms) > 4 {
 		return fmt.Errorf("invalid permission string %q", perms)
 	}
 	perms = strings.ToLower(perms)
