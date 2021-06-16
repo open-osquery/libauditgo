@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -23,6 +24,7 @@ var (
 	deleteCommandInput       = deleteCommand.Arg("input", "Input file path containing rules to be deleted").String()
 	enableCommandInput       = enableCommand.Arg("input", "State of the audit system true/false").Required().Bool()
 	backlogLimitCommandInput = backlogLimitCommand.Arg("limit", "Limit of the backlog buffer").Required().Int()
+	listCommandRawFlag       = listCommand.Flag("raw", "Lists all rules in raw format").Bool()
 )
 
 func main() {
@@ -32,7 +34,7 @@ func main() {
 		addRules(*addCommandInput)
 	// List audit rules
 	case listCommand.FullCommand():
-		printRules()
+		printRules(*listCommandRawFlag)
 	// Delete all audit rules
 	case deleteCommand.FullCommand():
 		deleteRules(*deleteCommandInput)
@@ -74,7 +76,22 @@ func addRules(filePath string) {
 
 }
 
-func printRules() {
+func printRules(printRaw bool) {
+	if printRaw {
+		auditRuleRawData, err := libauditgo.GetRawRules()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed %s\n", err)
+			return
+		}
+		if len(auditRuleRawData) == 0 {
+			fmt.Fprintf(os.Stderr, "No Rules found%s\n", err)
+			return
+		}
+		for _, rawRule := range auditRuleRawData {
+			fmt.Println(string(base64.RawStdEncoding.EncodeToString(rawRule)))
+		}
+		return
+	}
 	auditRuleData, err := libauditgo.GetRules()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed %s\n", err)

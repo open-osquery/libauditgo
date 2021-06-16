@@ -21,7 +21,7 @@ func AddRule(r AuditRule) (err error) {
 	}
 	err = client.AddRule(ard.toWireFormat())
 	if err != nil {
-		return err
+		return errors.Wrap(err, "Failed to add rule")
 	}
 	return nil
 }
@@ -51,6 +51,21 @@ func GetRules() ([]AuditRule, error) {
 		auditRules = append(auditRules, ar)
 	}
 	return auditRules, nil
+}
+
+// GetRawRules returns list bytes representing audit rules installed in the
+// system
+func GetRawRules() ([][]byte, error) {
+	client, err := libaudit.NewAuditClient(nil)
+	defer client.Close()
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to initialize client")
+	}
+	rawRules, err := client.GetRules()
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to get audit rules")
+	}
+	return rawRules, nil
 }
 
 // DeleteAllRules deletes all the audit rules from the kernel
